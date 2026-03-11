@@ -1,30 +1,425 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Munich Prayer Times</title>
-<link rel="stylesheet" href="style.css">
-</head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Munich Prayer Times · IZM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Overpass+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+  :root {
+    --bg:        #0d0f14;
+    --surface:   #13161e;
+    --border:    #1e2330;
+    --gold:      #c8a96e;
+    --gold-dim:  #7a6442;
+    --text:      #e8e2d6;
+    --muted:     #5a5f72;
+    --active-bg: #1a1f2e;
+    --next-glow: rgba(200,169,110,0.12);
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Overpass Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1.5rem 4rem;
+    /* subtle star-field texture */
+    background-image:
+      radial-gradient(ellipse 80% 40% at 50% 0%, #1a1f2e 0%, transparent 70%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    animation: fadeDown 0.7s ease both;
+  }
+
+  .arabic-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(1.8rem, 5vw, 2.6rem);
+    font-weight: 300;
+    font-style: italic;
+    color: var(--gold);
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+  }
+
+  .sub {
+    margin-top: 0.4rem;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Date bar ── */
+  .date-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    animation: fadeDown 0.7s 0.1s ease both;
+  }
+
+  #dateDisplay {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.05rem;
+    font-weight: 300;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+
+  .nav-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .nav-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+  .today-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: 'Overpass Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 0.3rem 0.8rem;
+    border-radius: 2rem;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .today-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+  /* hidden native date picker, triggered by a styled button */
+  #datePicker {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .cal-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s, color 0.2s;
+    position: relative;
+  }
+  .cal-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+  /* ── Card ── */
+  .card {
+    width: 100%;
+    max-width: 460px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    animation: fadeUp 0.6s 0.15s ease both;
+  }
+
+  /* ── Prayer rows ── */
+  .prayer-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 1.1rem 1.6rem;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .prayer-row:last-child { border-bottom: none; }
+
+  .prayer-row::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--gold);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform 0.3s ease;
+  }
+
+  .prayer-row.is-next {
+    background: var(--active-bg);
+    box-shadow: inset 0 0 40px var(--next-glow);
+  }
+  .prayer-row.is-next::before { transform: scaleY(1); }
+
+  .prayer-row.is-past { opacity: 0.45; }
+
+  .prayer-name {
+    font-size: 0.62rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .prayer-row.is-next .prayer-name { color: var(--gold-dim); }
+
+  .prayer-name-ar {
+    display: block;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1rem;
+    font-weight: 300;
+    font-style: italic;
+    color: var(--text);
+    margin-top: 0.15rem;
+    letter-spacing: 0.02em;
+  }
+  .prayer-row.is-next .prayer-name-ar { color: var(--gold); }
+
+  .prayer-time {
+    font-size: 1.4rem;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    color: var(--text);
+  }
+  .prayer-row.is-next .prayer-time { color: var(--gold); }
+
+  /* countdown badge */
+  .countdown {
+    font-size: 0.58rem;
+    letter-spacing: 0.12em;
+    color: var(--gold-dim);
+    text-align: right;
+    margin-top: 0.2rem;
+    min-height: 0.8em;
+  }
+
+  /* ── Footer ── */
+  .izm-link {
+    margin-top: 1.8rem;
+    font-size: 0.58rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+  .izm-link:hover { color: var(--gold-dim); }
+
+  /* ── Animations ── */
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* row entrance stagger */
+  .prayer-row { animation: rowIn 0.4s ease both; }
+  .prayer-row:nth-child(1) { animation-delay: 0.18s; }
+  .prayer-row:nth-child(2) { animation-delay: 0.24s; }
+  .prayer-row:nth-child(3) { animation-delay: 0.30s; }
+  .prayer-row:nth-child(4) { animation-delay: 0.36s; }
+  .prayer-row:nth-child(5) { animation-delay: 0.42s; }
+  .prayer-row:nth-child(6) { animation-delay: 0.48s; }
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+</style>
+</head>
 <body>
 
-<h1>Prayer Times (IZM Calculation)</h1>
+<header>
+  <div class="arabic-title">Munich Prayer Times</div>
+  <div class="sub">Islamisches Zentrum München · IZM</div>
+</header>
 
-<input type="date" id="datePicker">
+<div class="date-bar">
+  <button class="nav-btn" id="prevDay" title="Previous day">&#8592;</button>
 
-<table>
-<thead>
-<tr>
-<th>Prayer</th>
-<th>Time</th>
-</tr>
-</thead>
+  <span id="dateDisplay"></span>
 
-<tbody id="times"></tbody>
+  <button class="nav-btn" id="nextDay" title="Next day">&#8594;</button>
+  <button class="today-btn" id="todayBtn">Today</button>
 
-</table>
+  <!-- calendar icon opens native date picker -->
+  <button class="cal-btn" id="calBtn" title="Pick a date">&#128197;
+    <input type="date" id="datePicker">
+  </button>
+</div>
+
+<div class="card" id="prayerCard"></div>
+
+<a class="izm-link" href="https://www.islamisches-zentrum-muenchen.de" target="_blank" rel="noopener">
+  islamisches-zentrum-muenchen.de
+</a>
 
 <script src="prayer.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let currentDate = new Date();
+currentDate.setHours(0,0,0,0);
 
+// ── Prayer metadata ────────────────────────────────────────────────────────
+const PRAYERS = [
+  { key: 'fajr',    label: 'Fajr',    arabic: 'الفجر'   },
+  { key: 'sunrise', label: 'Sunrise', arabic: 'الشروق'  },
+  { key: 'dhuhr',   label: 'Dhuhr',   arabic: 'الظهر'   },
+  { key: 'asr',     label: 'Asr',     arabic: 'العصر'   },
+  { key: 'maghrib', label: 'Maghrib', arabic: 'المغرب'  },
+  { key: 'isha',    label: 'Isha',    arabic: 'العشاء'  },
+];
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function toMinutes(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function formatCountdown(diffMin) {
+  if (diffMin < 0) return '';
+  const h = Math.floor(diffMin / 60);
+  const m = diffMin % 60;
+  if (h > 0) return `in ${h}h ${m}m`;
+  return `in ${m}m`;
+}
+
+function formatDate(d) {
+  return d.toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+}
+
+function toISOLocal(d) {
+  // "YYYY-MM-DD" in local time (not UTC)
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  const times = getPrayerTimes(currentDate);
+  const isToday = toISOLocal(currentDate) === toISOLocal(new Date());
+
+  // Current time in minutes (only relevant when viewing today)
+  const now = new Date();
+  const nowMin = isToday ? now.getHours() * 60 + now.getMinutes() : -1;
+
+  // Find next prayer index (only for today)
+  let nextIdx = -1;
+  if (isToday) {
+    for (let i = 0; i < PRAYERS.length; i++) {
+      if (toMinutes(times[PRAYERS[i].key]) > nowMin) { nextIdx = i; break; }
+    }
+  }
+
+  // Update date display
+  document.getElementById('dateDisplay').textContent = formatDate(currentDate);
+
+  // Rebuild card rows
+  const card = document.getElementById('prayerCard');
+  card.innerHTML = '';
+
+  PRAYERS.forEach(({ key, label, arabic }, i) => {
+    const row = document.createElement('div');
+    row.className = 'prayer-row';
+
+    const prayerMin = toMinutes(times[key]);
+    const isPast = isToday && prayerMin < nowMin && i !== nextIdx;
+    const isNext = i === nextIdx;
+
+    if (isPast) row.classList.add('is-past');
+    if (isNext) row.classList.add('is-next');
+
+    const diffMin = isNext ? prayerMin - nowMin : 0;
+
+    row.innerHTML = `
+      <div>
+        <span class="prayer-name">${label}</span>
+        <span class="prayer-name-ar">${arabic}</span>
+      </div>
+      <div>
+        <div class="prayer-time">${times[key]}</div>
+        <div class="countdown">${isNext ? formatCountdown(diffMin) : ''}</div>
+      </div>`;
+
+    card.appendChild(row);
+  });
+}
+
+// ── Countdown tick (updates every minute) ─────────────────────────────────
+function tick() {
+  const isToday = toISOLocal(currentDate) === toISOLocal(new Date());
+  if (isToday) render();
+}
+setInterval(tick, 60_000);
+
+// ── Controls ───────────────────────────────────────────────────────────────
+document.getElementById('prevDay').addEventListener('click', () => {
+  currentDate.setDate(currentDate.getDate() - 1);
+  render();
+});
+
+document.getElementById('nextDay').addEventListener('click', () => {
+  currentDate.setDate(currentDate.getDate() + 1);
+  render();
+});
+
+document.getElementById('todayBtn').addEventListener('click', () => {
+  currentDate = new Date();
+  currentDate.setHours(0,0,0,0);
+  render();
+});
+
+// Calendar icon triggers the hidden date input
+document.getElementById('calBtn').addEventListener('click', () => {
+  const picker = document.getElementById('datePicker');
+  picker.value = toISOLocal(currentDate);
+  picker.style.pointerEvents = 'auto';
+  picker.showPicker?.();
+  picker.focus();
+});
+
+document.getElementById('datePicker').addEventListener('change', e => {
+  if (!e.target.value) return;
+  const [y, m, d] = e.target.value.split('-').map(Number);
+  currentDate = new Date(y, m - 1, d);
+  e.target.style.pointerEvents = 'none';
+  render();
+});
+
+// ── Init ───────────────────────────────────────────────────────────────────
+render();
+</script>
 </body>
 </html>
