@@ -328,7 +328,7 @@ function toISOLocal(d) {
 
 // ── Render ─────────────────────────────────────────────────────────────────
 function render() {
-  const times = prayerCalculator.getTimes(currentDate);
+  const times = getPrayerTimes(currentDate);
   const isToday = toISOLocal(currentDate) === toISOLocal(new Date());
 
   // Current time in minutes (only relevant when viewing today)
